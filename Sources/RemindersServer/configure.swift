@@ -30,7 +30,7 @@ public func configure(_ app: Application) async throws {
     print("Current working directory: \(FileManager.default.currentDirectoryPath)")
 
     app.databases.use(.mysql(hostname: dbHostname, port:3306, username: dbUsername, password: dbPassword, database: dbDatabase, tlsConfiguration: tls), as: .mysql)
-
+    
     // register routes
     try routes(app)
 }

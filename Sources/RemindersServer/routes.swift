@@ -2,6 +2,7 @@ import Vapor
 import EventKit
 
 struct ReminderDTO: Content {
+    let id: String
     let title: String
     let listName: String
 }
@@ -22,7 +23,7 @@ func routes(_ app: Application) throws {
     }
     
     app.post("test") { req async throws -> Test in
-        let test = Test(name: "test")
+        let test = Test(name: "test" + String(Int.random(in: 0..<6)))
         try await test.create(on: req.db)
         return test
     }
@@ -49,6 +50,7 @@ func routes(_ app: Application) throws {
                         .filter { $0.isCompleted == false }
                         .map { 
                             ReminderDTO(
+                                id: $0.calendarItemIdentifier,
                                 title: $0.title ?? "",
                                 listName: $0.calendar?.title ?? "",
                             )
