@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:5.7
 import PackageDescription
 
 let package = Package(
@@ -39,6 +39,10 @@ let package = Package(
     ]
 )
 
-var swiftSettings: [SwiftSetting] { [
-    .enableUpcomingFeature("ExistentialAny"),
-] }
+let swiftSettings: [SwiftSetting] = {
+#if compiler(>=6.0)
+    return [.enableUpcomingFeature("BareSlashRegexLiterals")]
+#else
+    return []
+#endif
+}()
