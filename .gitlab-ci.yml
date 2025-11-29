@@ -30,7 +30,13 @@ deploy:
     - pkill $APP_NAME || true
     - sleep 2
     - cp .build/release/$APP_NAME $INSTALL_DIR/
-    - cd $INSTALL_DIR && nohup ./$APP_NAME > app.log 2>&1 &
+    - |
+      cd $INSTALL_DIR && \
+      DB_HOST=$DB_HOST \
+      DB_USER=$DB_USER \
+      DB_PASS=$DB_PASS \
+      DB_NAME=$DB_NAME \
+      nohup ./$APP_NAME > app.log 2>&1 &
     - sleep 3
     - pgrep $APP_NAME && echo "Server started successfully"
   only:
