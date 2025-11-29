@@ -15,7 +15,7 @@ build:
     - $SWIFT --version
     - rm -rf .build/checkouts/swift-collections .build/checkouts/vapor
     - $SWIFT package resolve
-    - $SWIFT build -c release
+    - nice -n 10 $SWIFT build -c release -j 2
   artifacts:
     paths:
       - .build/release/RemindersServer
@@ -31,7 +31,7 @@ deploy:
     - if [ -f $INSTALL_DIR/app.pid ]; then kill $(cat $INSTALL_DIR/app.pid) 2>/dev/null || true; else pkill -f "$INSTALL_DIR/$APP_NAME" || true; fi
     - sleep 2
     - cp .build/release/$APP_NAME $INSTALL_DIR/
-    - bash -c "cd $INSTALL_DIR && DB_HOST=$DB_HOST DB_USER=$DB_USER DB_PASS=$DB_PASS DB_NAME=$DB_NAME nohup ./$APP_NAME > app.log 2>&1 & echo \$! > app.pid"
+    - cd $INSTALL_DIR && DB_HOST=$DB_HOST DB_USER=$DB_USER DB_PASS=$DB_PASS DB_NAME=$DB_NAME nohup ./$APP_NAME </dev/null > app.log 2>&1 & echo $! > app.pid
     - sleep 3
     - cat $INSTALL_DIR/app.pid
     - ps -p $(cat $INSTALL_DIR/app.pid) || echo "Warning - process not running"
