@@ -1,0 +1,35 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  APP_NAME: RemindersServer
+  INSTALL_DIR: ~/RemindersServer
+
+build:
+  stage: build
+  tags:
+    - macos
+  script:
+    - swift build -c release
+  artifacts:
+    paths:
+      - .build/release/RemindersServer
+    expire_in: 1 hour
+
+deploy:
+  stage: deploy
+  tags:
+    - macos
+  script:
+    - mkdir -p $INSTALL_DIR
+    - pkill $APP_NAME || true
+    - sleep 2
+    - cp .build/release/$APP_NAME $INSTALL_DIR/
+    - cd $INSTALL_DIR && nohup ./$APP_NAME > app.log 2>&1 &
+    - sleep 3
+    - pgrep $APP_NAME && echo "Server started successfully"
+  only:
+    - main
+  dependencies:
+    - build
