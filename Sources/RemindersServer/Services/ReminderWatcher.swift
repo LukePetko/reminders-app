@@ -1,8 +1,9 @@
 import Vapor
 import EventKit
 import Fluent
+import NIOCronScheduler
 
-/// Watches for changes in macOS Reminders via EKEventStoreChanged notification
+/// Watches for changes in macOS Reminders via EKEventStoreChanged notification + polling fallback
 final class ReminderWatcher: @unchecked Sendable {
     private let app: Application
     private let store: EKEventStore
@@ -28,7 +29,7 @@ final class ReminderWatcher: @unchecked Sendable {
         // Perform initial sync
         try await performSync()
         
-        // Subscribe to changes
+        // Subscribe to changes (works for local changes)
         observer = NotificationCenter.default.addObserver(
             forName: .EKEventStoreChanged,
             object: store,
@@ -44,7 +45,15 @@ final class ReminderWatcher: @unchecked Sendable {
             }
         }
         
-        app.logger.info("ReminderWatcher started - listening for EKEventStoreChanged")
+        // Polling fallback every second for iCloud sync changes
+        let watcher = self
+        _ = try NIOCronScheduler.schedule("* * * * * *", on: app.eventLoopGroup.next()) {
+            Task {
+                try? await watcher.pollSync()
+            }
+        }
+        
+        app.logger.info("ReminderWatcher started - listening for EKEventStoreChanged + polling every 1s")
     }
     
     /// Stops watching for changes
@@ -59,6 +68,12 @@ final class ReminderWatcher: @unchecked Sendable {
     /// Handles a change notification from EventKit
     private func handleChange() async throws {
         app.logger.info("EKEventStoreChanged received - syncing reminders")
+        try await performSync()
+    }
+    
+    /// Called by polling job
+    func pollSync() async throws {
+        app.logger.debug("Polling sync triggered")
         try await performSync()
     }
     
