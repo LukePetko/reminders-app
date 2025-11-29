@@ -13,7 +13,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.62.0"),
         .package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
         .package(url: "https://github.com/vapor/fluent-mysql-driver.git", from: "4.0.0"),
-        .package(url: "https://github.com/MihaelIsaev/VaporCron.git", from: "2.6.0")
+        .package(url: "https://github.com/MihaelIsaev/VaporCron.git", from: "2.6.0"),
+        // Pin swift-collections to a version compatible with Swift 5.7
+        .package(url: "https://github.com/apple/swift-collections.git", exact: "1.0.6")
     ],
     targets: [
         .executableTarget(
