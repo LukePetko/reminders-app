@@ -27,7 +27,8 @@ deploy:
     - macos
   script:
     - mkdir -p $INSTALL_DIR
-    - if [ -f $INSTALL_DIR/app.pid ]; then kill $(cat $INSTALL_DIR/app.pid) 2>/dev/null || true; fi
+    # Kill existing process by PID file OR by name (fallback for first run)
+    - if [ -f $INSTALL_DIR/app.pid ]; then kill $(cat $INSTALL_DIR/app.pid) 2>/dev/null || true; else pkill -f "$INSTALL_DIR/$APP_NAME" || true; fi
     - sleep 2
     - cp .build/release/$APP_NAME $INSTALL_DIR/
     - bash -c "cd $INSTALL_DIR && DB_HOST=$DB_HOST DB_USER=$DB_USER DB_PASS=$DB_PASS DB_NAME=$DB_NAME nohup ./$APP_NAME > app.log 2>&1 & echo \$! > app.pid"
