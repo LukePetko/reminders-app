@@ -13,7 +13,7 @@ build:
     - macos
   script:
     - $SWIFT --version
-    - rm -rf .build/checkouts/swift-collections
+    - rm -rf .build/checkouts/swift-collections .build/checkouts/vapor
     - $SWIFT package resolve
     - $SWIFT build -c release
   artifacts:
