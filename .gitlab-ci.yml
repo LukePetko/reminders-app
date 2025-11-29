@@ -27,9 +27,10 @@ deploy:
     - macos
   variables:
     PLIST_NAME: com.lukaspetko.remindersserver
-    PLIST_PATH: ~/Library/LaunchAgents/com.lukaspetko.remindersserver.plist
   script:
+    - export PLIST_PATH="$HOME/Library/LaunchAgents/com.lukaspetko.remindersserver.plist"
     - mkdir -p $INSTALL_DIR
+    - mkdir -p "$HOME/Library/LaunchAgents"
     - cp .build/release/$APP_NAME $INSTALL_DIR/
 
     # Create launchd plist for the service
