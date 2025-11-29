@@ -25,17 +25,58 @@ deploy:
   stage: deploy
   tags:
     - macos
+  variables:
+    PLIST_NAME: com.lukaspetko.remindersserver
+    PLIST_PATH: ~/Library/LaunchAgents/com.lukaspetko.remindersserver.plist
   script:
     - mkdir -p $INSTALL_DIR
-    # Kill existing process by PID file OR by name (fallback for first run)
-    - if [ -f $INSTALL_DIR/app.pid ]; then kill $(cat $INSTALL_DIR/app.pid) 2>/dev/null || true; else pkill -f "$INSTALL_DIR/$APP_NAME" || true; fi
-    - sleep 2
     - cp .build/release/$APP_NAME $INSTALL_DIR/
-    - cd $INSTALL_DIR && DB_HOST=$DB_HOST DB_USER=$DB_USER DB_PASS=$DB_PASS DB_NAME=$DB_NAME nohup ./$APP_NAME </dev/null > app.log 2>&1 & echo $! > app.pid
-    - sleep 3
-    - cat $INSTALL_DIR/app.pid
-    - ps -p $(cat $INSTALL_DIR/app.pid) || echo "Warning - process not running"
-    - echo "Deploy complete"
+
+    # Create launchd plist for the service
+    - |
+      cat > $PLIST_PATH << EOF
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>Label</key>
+        <string>$PLIST_NAME</string>
+        <key>ProgramArguments</key>
+        <array>
+          <string>$INSTALL_DIR/$APP_NAME</string>
+        </array>
+        <key>WorkingDirectory</key>
+        <string>$INSTALL_DIR</string>
+        <key>EnvironmentVariables</key>
+        <dict>
+          <key>DB_HOST</key>
+          <string>$DB_HOST</string>
+          <key>DB_USER</key>
+          <string>$DB_USER</string>
+          <key>DB_PASS</key>
+          <string>$DB_PASS</string>
+          <key>DB_NAME</key>
+          <string>$DB_NAME</string>
+        </dict>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>KeepAlive</key>
+        <true/>
+        <key>StandardOutPath</key>
+        <string>$INSTALL_DIR/app.log</string>
+        <key>StandardErrorPath</key>
+        <string>$INSTALL_DIR/app.log</string>
+      </dict>
+      </plist>
+      EOF
+
+    # Unload existing service (if running), then load the new one
+    - launchctl unload $PLIST_PATH 2>/dev/null || true
+    - launchctl load $PLIST_PATH
+
+    # Verify service is running
+    - sleep 2
+    - launchctl list | grep $PLIST_NAME && echo "Service started successfully"
   only:
     - main
   dependencies:
