@@ -52,7 +52,7 @@ func routes(_ app: Application) throws {
                             ReminderDTO(
                                 id: $0.calendarItemIdentifier,
                                 title: $0.title ?? "",
-                                listName: $0.calendar?.title ?? "",
+                                listName: $0.calendar?.title ?? ""
                             )
                         }
                 }

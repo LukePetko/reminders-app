@@ -1,16 +1,15 @@
 @testable import RemindersServer
-import VaporTesting
-import Testing
+import XCTVapor
 
-@Suite("App Tests")
-struct RemindersServerTests {
-    @Test("Test Hello World Route")
-    func helloWorld() async throws {
-        try await withApp(configure: configure) { app in
-            try await app.testing().test(.GET, "hello", afterResponse: { res async in
-                #expect(res.status == .ok)
-                #expect(res.body.string == "Hello, world!")
-            })
+final class RemindersServerTests: XCTestCase {
+    func testHelloWorld() async throws {
+        let app = Application(.testing)
+        defer { app.shutdown() }
+        try await configure(app)
+        
+        try app.test(.GET, "hello") { res in
+            XCTAssertEqual(res.status, .ok)
+            XCTAssertEqual(res.body.string, "Hello, world!")
         }
     }
 }
