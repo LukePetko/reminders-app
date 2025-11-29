@@ -5,13 +5,15 @@ stages:
 variables:
   APP_NAME: RemindersServer
   INSTALL_DIR: ~/RemindersServer
+  SWIFT: /Library/Developer/Toolchains/swift-5.7.3-RELEASE.xctoolchain/usr/bin/swift
 
 build:
   stage: build
   tags:
     - macos
   script:
-    - swift build -c release
+    - $SWIFT --version
+    - $SWIFT build -c release
   artifacts:
     paths:
       - .build/release/RemindersServer
