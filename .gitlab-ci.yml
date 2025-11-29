@@ -4,7 +4,7 @@ stages:
 
 variables:
   APP_NAME: RemindersServer
-  INSTALL_DIR: ~/RemindersServer
+  INSTALL_DIR: /Users/lukaspetko/RemindersServer
   SWIFT: /Library/Developer/Toolchains/swift-5.7.3-RELEASE.xctoolchain/usr/bin/swift
 
 build:
@@ -27,12 +27,14 @@ deploy:
     - macos
   script:
     - mkdir -p $INSTALL_DIR
-    - pkill $APP_NAME || true
+    - if [ -f $INSTALL_DIR/app.pid ]; then kill $(cat $INSTALL_DIR/app.pid) 2>/dev/null || true; fi
     - sleep 2
     - cp .build/release/$APP_NAME $INSTALL_DIR/
-    - cd $INSTALL_DIR && DB_HOST=$DB_HOST DB_USER=$DB_USER DB_PASS=$DB_PASS DB_NAME=$DB_NAME nohup ./$APP_NAME > app.log 2>&1 & disown
+    - bash -c "cd $INSTALL_DIR && DB_HOST=$DB_HOST DB_USER=$DB_USER DB_PASS=$DB_PASS DB_NAME=$DB_NAME nohup ./$APP_NAME > app.log 2>&1 & echo \$! > app.pid"
     - sleep 3
-    - pgrep $APP_NAME && echo "Server started successfully"
+    - cat $INSTALL_DIR/app.pid
+    - ps -p $(cat $INSTALL_DIR/app.pid) || echo "Warning - process not running"
+    - echo "Deploy complete"
   only:
     - main
   dependencies:
