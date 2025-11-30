@@ -16,8 +16,9 @@ build:
     - rm -rf .build/checkouts/swift-collections .build/checkouts/vapor
     - $SWIFT package resolve
     - nice -n 10 $SWIFT build -c release -j 2
-    # Sign with ad-hoc signature and entitlements for consistent TCC permissions
-    - codesign --force --sign - --entitlements RemindersServer.entitlements .build/release/RemindersServer
+    # Sign with self-signed certificate for consistent TCC permissions
+    # Create cert once via: Keychain Access → Certificate Assistant → Create Certificate (Code Signing, name: RemindersServerDev)
+    - codesign --force --sign "RemindersServerDev" --entitlements RemindersServer.entitlements .build/release/RemindersServer || codesign --force --sign - --entitlements RemindersServer.entitlements .build/release/RemindersServer
   artifacts:
     paths:
       - .build/release/RemindersServer
