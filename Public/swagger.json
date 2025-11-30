@@ -1,0 +1,563 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Reminders Server API",
+    "description": "API for managing macOS Reminders with webhook notifications",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Lukas Petko"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9201",
+      "description": "Local development"
+    },
+    {
+      "url": "http://192.168.1.40:9201",
+      "description": "Local network"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Health check",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Server is running",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "It works!"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reminders": {
+      "get": {
+        "summary": "Get all incomplete reminders",
+        "tags": ["Reminders"],
+        "responses": {
+          "200": {
+            "description": "List of reminders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Reminder"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Reminders access denied"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new reminder",
+        "tags": ["Reminders"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReminder"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reminder created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "403": {
+            "description": "Reminders access denied"
+          }
+        }
+      }
+    },
+    "/reminders/{id}": {
+      "get": {
+        "summary": "Get a specific reminder",
+        "tags": ["Reminders"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Reminder ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reminder not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a reminder",
+        "tags": ["Reminders"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Reminder ID"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Reminder deleted"
+          },
+          "404": {
+            "description": "Reminder not found"
+          }
+        }
+      }
+    },
+    "/reminders/{id}/complete": {
+      "post": {
+        "summary": "Mark a reminder as completed",
+        "tags": ["Reminders"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Reminder ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder marked as completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reminder not found"
+          }
+        }
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "summary": "List all webhooks",
+        "tags": ["Webhooks"],
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Webhook"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new webhook subscription",
+        "tags": ["Webhooks"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Webhook"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL"
+          }
+        }
+      }
+    },
+    "/webhooks/{id}": {
+      "get": {
+        "summary": "Get a specific webhook",
+        "tags": ["Webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Webhook"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a webhook",
+        "tags": ["Webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Webhook deleted"
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      }
+    },
+    "/webhooks/{id}/test": {
+      "post": {
+        "summary": "Send a test webhook payload",
+        "tags": ["Webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      }
+    },
+    "/webhooks/{id}/toggle": {
+      "patch": {
+        "summary": "Toggle webhook active status",
+        "tags": ["Webhooks"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Webhook"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Reminder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique reminder identifier"
+          },
+          "title": {
+            "type": "string",
+            "description": "Reminder title"
+          },
+          "listName": {
+            "type": "string",
+            "description": "Name of the reminder list"
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Whether the reminder is completed"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Due date for the reminder"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "description": "Additional notes"
+          }
+        },
+        "required": ["id", "title", "listName"]
+      },
+      "CreateReminder": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Reminder title"
+          },
+          "listName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the list to add to (uses default if not specified)"
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "description": "Additional notes"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Due date for the reminder"
+          }
+        },
+        "required": ["title"]
+      },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique webhook identifier"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to send webhook notifications to"
+          },
+          "reminderID": {
+            "type": "string",
+            "nullable": true,
+            "description": "Filter to specific reminder ID (null = all reminders)"
+          },
+          "listName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Filter to specific list name (null = all lists)"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["created", "updated", "completed", "deleted"]
+            },
+            "description": "Event types to subscribe to"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the webhook is active"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the webhook was created"
+          }
+        },
+        "required": ["id", "url", "events", "active"]
+      },
+      "CreateWebhook": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to send webhook notifications to"
+          },
+          "secret": {
+            "type": "string",
+            "nullable": true,
+            "description": "Secret for HMAC signature verification"
+          },
+          "reminderID": {
+            "type": "string",
+            "nullable": true,
+            "description": "Filter to specific reminder ID"
+          },
+          "listName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Filter to specific list name"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["created", "updated", "completed", "deleted"]
+            },
+            "description": "Event types to subscribe to (default: all)"
+          }
+        },
+        "required": ["url"]
+      },
+      "WebhookPayload": {
+        "type": "object",
+        "description": "Payload sent to webhook URLs",
+        "properties": {
+          "event": {
+            "type": "string",
+            "description": "Event type (e.g., reminder.created, reminder.updated)",
+            "example": "reminder.created"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the event occurred"
+          },
+          "reminder": {
+            "$ref": "#/components/schemas/ReminderSnapshot"
+          },
+          "previousState": {
+            "$ref": "#/components/schemas/ReminderSnapshot",
+            "nullable": true,
+            "description": "Previous state (for updates/deletes)"
+          }
+        }
+      },
+      "ReminderSnapshot": {
+        "type": "object",
+        "properties": {
+          "reminderID": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "isCompleted": {
+            "type": "boolean"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "Reminders",
+      "description": "Manage macOS Reminders"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook subscriptions for reminder changes"
+    }
+  ]
+}

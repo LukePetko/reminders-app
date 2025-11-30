@@ -6,12 +6,52 @@ struct ReminderDTO: Content {
     let id: String
     let title: String
     let listName: String
+    let isCompleted: Bool?
+    let dueDate: Date?
+    let notes: String?
+}
+
+struct CreateReminderDTO: Content {
+    let title: String
+    let listName: String?
+    let notes: String?
+    let dueDate: Date?
 }
 
 
 func routes(_ app: Application) throws {
     app.get { req async in
         "It works!"
+    }
+    
+    // Swagger UI
+    app.get("docs") { req -> Response in
+        let html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Reminders API Documentation</title>
+            <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+        </head>
+        <body>
+            <div id="swagger-ui"></div>
+            <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+            <script>
+                SwaggerUIBundle({
+                    url: "/swagger.json",
+                    dom_id: '#swagger-ui',
+                    presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+                    layout: "BaseLayout"
+                });
+            </script>
+        </body>
+        </html>
+        """
+        return Response(
+            status: .ok,
+            headers: ["Content-Type": "text/html"],
+            body: .init(string: html)
+        )
     }
 
     app.get("hello") { req async -> String in
@@ -33,36 +73,165 @@ func routes(_ app: Application) throws {
         try await Test.query(on: req.db).all()
     }
 
-    app.get("reminders") { req -> [ReminderDTO] in
+    // Get all incomplete reminders
+    app.get("reminders") { req async throws -> [ReminderDTO] in
         let store = EKEventStore()
-        var titles: [ReminderDTO] = []
-        let sema = DispatchSemaphore(value: 0)
-
-        store.requestAccess(to: .reminder) { granted, error in
-            guard granted, error == nil else {
-                sema.signal()
-                return
-            }
-
+        let granted = try await store.requestAccess(to: .reminder)
+        
+        guard granted else {
+            throw Abort(.forbidden, reason: "Reminders access denied")
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
             let predicate = store.predicateForReminders(in: nil)
             store.fetchReminders(matching: predicate) { reminders in
-                if let reminders = reminders {
-                    titles = reminders
-                        .filter { $0.isCompleted == false }
-                        .map { 
-                            ReminderDTO(
-                                id: $0.calendarItemIdentifier,
-                                title: $0.title ?? "",
-                                listName: $0.calendar?.title ?? ""
-                            )
-                        }
-                }
-                sema.signal()
+                let dtos = (reminders ?? [])
+                    .filter { !$0.isCompleted }
+                    .map { reminder in
+                        ReminderDTO(
+                            id: reminder.calendarItemIdentifier,
+                            title: reminder.title ?? "",
+                            listName: reminder.calendar?.title ?? "",
+                            isCompleted: reminder.isCompleted,
+                            dueDate: reminder.dueDateComponents?.date,
+                            notes: reminder.notes
+                        )
+                    }
+                continuation.resume(returning: dtos)
             }
         }
-
-        sema.wait()
-        return titles
+    }
+    
+    // Create a new reminder
+    app.post("reminders") { req async throws -> ReminderDTO in
+        let dto = try req.content.decode(CreateReminderDTO.self)
+        
+        let store = EKEventStore()
+        let granted = try await store.requestAccess(to: .reminder)
+        
+        guard granted else {
+            throw Abort(.forbidden, reason: "Reminders access denied")
+        }
+        
+        // Find the calendar (list) to add the reminder to
+        let calendars = store.calendars(for: .reminder)
+        let calendar: EKCalendar
+        
+        if let listName = dto.listName,
+           let found = calendars.first(where: { $0.title == listName }) {
+            calendar = found
+        } else if let defaultCalendar = store.defaultCalendarForNewReminders() {
+            calendar = defaultCalendar
+        } else if let firstCalendar = calendars.first {
+            calendar = firstCalendar
+        } else {
+            throw Abort(.badRequest, reason: "No reminder lists available")
+        }
+        
+        // Create the reminder
+        let reminder = EKReminder(eventStore: store)
+        reminder.title = dto.title
+        reminder.calendar = calendar
+        reminder.notes = dto.notes
+        
+        if let dueDate = dto.dueDate {
+            reminder.dueDateComponents = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute],
+                from: dueDate
+            )
+        }
+        
+        try store.save(reminder, commit: true)
+        
+        return ReminderDTO(
+            id: reminder.calendarItemIdentifier,
+            title: reminder.title ?? "",
+            listName: reminder.calendar?.title ?? "",
+            isCompleted: reminder.isCompleted,
+            dueDate: reminder.dueDateComponents?.date,
+            notes: reminder.notes
+        )
+    }
+    
+    // Get a specific reminder
+    app.get("reminders", ":id") { req async throws -> ReminderDTO in
+        guard let id = req.parameters.get("id") else {
+            throw Abort(.badRequest, reason: "Invalid reminder ID")
+        }
+        
+        let store = EKEventStore()
+        let granted = try await store.requestAccess(to: .reminder)
+        
+        guard granted else {
+            throw Abort(.forbidden, reason: "Reminders access denied")
+        }
+        
+        guard let item = store.calendarItem(withIdentifier: id),
+              let reminder = item as? EKReminder else {
+            throw Abort(.notFound, reason: "Reminder not found")
+        }
+        
+        return ReminderDTO(
+            id: reminder.calendarItemIdentifier,
+            title: reminder.title ?? "",
+            listName: reminder.calendar?.title ?? "",
+            isCompleted: reminder.isCompleted,
+            dueDate: reminder.dueDateComponents?.date,
+            notes: reminder.notes
+        )
+    }
+    
+    // Complete a reminder
+    app.post("reminders", ":id", "complete") { req async throws -> ReminderDTO in
+        guard let id = req.parameters.get("id") else {
+            throw Abort(.badRequest, reason: "Invalid reminder ID")
+        }
+        
+        let store = EKEventStore()
+        let granted = try await store.requestAccess(to: .reminder)
+        
+        guard granted else {
+            throw Abort(.forbidden, reason: "Reminders access denied")
+        }
+        
+        guard let item = store.calendarItem(withIdentifier: id),
+              let reminder = item as? EKReminder else {
+            throw Abort(.notFound, reason: "Reminder not found")
+        }
+        
+        reminder.isCompleted = true
+        try store.save(reminder, commit: true)
+        
+        return ReminderDTO(
+            id: reminder.calendarItemIdentifier,
+            title: reminder.title ?? "",
+            listName: reminder.calendar?.title ?? "",
+            isCompleted: reminder.isCompleted,
+            dueDate: reminder.dueDateComponents?.date,
+            notes: reminder.notes
+        )
+    }
+    
+    // Delete a reminder
+    app.delete("reminders", ":id") { req async throws -> HTTPStatus in
+        guard let id = req.parameters.get("id") else {
+            throw Abort(.badRequest, reason: "Invalid reminder ID")
+        }
+        
+        let store = EKEventStore()
+        let granted = try await store.requestAccess(to: .reminder)
+        
+        guard granted else {
+            throw Abort(.forbidden, reason: "Reminders access denied")
+        }
+        
+        guard let item = store.calendarItem(withIdentifier: id),
+              let reminder = item as? EKReminder else {
+            throw Abort(.notFound, reason: "Reminder not found")
+        }
+        
+        try store.remove(reminder, commit: true)
+        return .noContent
     }
     
     // MARK: - Webhook Routes
