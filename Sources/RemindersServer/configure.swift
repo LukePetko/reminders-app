@@ -9,6 +9,29 @@ public func configure(_ app: Application) async throws {
     
     app.http.server.configuration.hostname = "0.0.0.0"
     app.http.server.configuration.port = 9201
+    
+    // Configure JSON decoder to handle ISO8601 dates with fractional seconds
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .custom { decoder in
+        let container = try decoder.singleValueContainer()
+        let dateString = try container.decode(String.self)
+        
+        // Try ISO8601 with fractional seconds first
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: dateString) {
+            return date
+        }
+        
+        // Fall back to ISO8601 without fractional seconds
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: dateString) {
+            return date
+        }
+        
+        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format")
+    }
+    ContentConfiguration.global.use(decoder: decoder, for: .json)
 
     let dbHostname = Environment.get("DB_HOST") ?? "127.0.0.1"
     let dbPort = Environment.get("DB_PORT").flatMap(Int.init) ?? 5432
