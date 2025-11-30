@@ -16,13 +16,17 @@ enum WebhookService {
             return
         }
         
+        // Fire-and-forget: dispatch all webhooks in parallel without waiting
         for change in changes {
             let matchingWebhooks = webhooks.filter { webhook in
                 matches(webhook: webhook, change: change)
             }
             
             for webhook in matchingWebhooks {
-                await dispatchToWebhook(webhook: webhook, change: change, app: app)
+                // Dispatch in background - don't wait for response
+                Task {
+                    await dispatchToWebhook(webhook: webhook, change: change, app: app)
+                }
             }
         }
     }
@@ -73,12 +77,15 @@ enum WebhookService {
                 headers.add(name: "X-Webhook-Signature", value: signature)
             }
             
+            // 5 second timeout - don't wait forever for slow endpoints
             let response = try await app.client.post(
                 URI(string: webhook.url),
-                headers: headers
-            ) { req in
-                try req.content.encode(payload)
-            }
+                headers: headers,
+                beforeSend: { req in
+                    try req.content.encode(payload)
+                    req.timeout = .seconds(5)
+                }
+            )
             
             if response.status.code >= 200 && response.status.code < 300 {
                 app.logger.info("Webhook delivered: \(webhook.url) - \(payload.event)")
